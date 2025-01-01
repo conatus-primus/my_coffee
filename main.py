@@ -1,7 +1,6 @@
-import io
 import sys
 from PyQt6 import uic  # Импортируем uic
-from PyQt6.QtWidgets import QApplication, QMainWindow, QTableWidgetItem, QWidget
+from PyQt6.QtWidgets import QApplication, QMainWindow, QTableWidgetItem
 from PyQt6.QtCore import QSize, Qt
 import sqlite3
 
