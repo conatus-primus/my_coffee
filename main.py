@@ -27,7 +27,7 @@ class MyWidget(QMainWindow):
         # Подключение к БД
         self.con = sqlite3.connect(db_name)
         # закачка таблицы
-        self.updateTableFromDB()
+        self.updateTableFromDB(None)
 
     def initUi(self):
         self.setWindowTitle('Капучино')
@@ -59,11 +59,11 @@ class MyWidget(QMainWindow):
         dlg = AddEditCoffeeDlg(self, None)
         dlg.exec()
 
-    def modifyRecord(self, edit_record_id):
-        dlg = AddEditCoffeeDlg(self, edit_record_id)
+    def modifyRecord(self, record_id_edit):
+        dlg = AddEditCoffeeDlg(self, record_id_edit)
         dlg.exec()
 
-    def updateTableFromDB(self):
+    def updateTableFromDB(self, record_id_focus):
         # Выполнение запроса и получение всех результатов
         result = self.con.execute('''
             SELECT 
@@ -90,9 +90,12 @@ class MyWidget(QMainWindow):
                 # пусть будет для всех элементов, может пригодится на будущее
                 new_item.setData(role_db, elem[j + 1])
                 self.tableWidget.setItem(i, j // 2, new_item)
+                if j == 0 and record_id_focus is not None and record_id_focus == elem[j]:
+                    self.tableWidget.setCurrentItem(new_item)
 
         self.tableWidget.resizeColumnsToContents()
-        self.tableWidget.setCurrentItem(self.tableWidget.item(len(result) - 1, 0))
+        if self.tableWidget.currentItem() is None:
+            self.tableWidget.setCurrentItem(self.tableWidget.item(len(result) - 1, 0))
 
     def onCellDoubleClicked(self, row, column):
         item = self.tableWidget.item(row, 0)
@@ -110,6 +113,7 @@ class MyWidget(QMainWindow):
 class AddEditCoffeeDlg(QDialog):
     def __init__(self, parent, record_id):
         super().__init__(parent)
+        self.record_id = record_id
         loadUi('addEditCoffeeForm.ui', self)
 
         # ограничим ввод числами
@@ -162,7 +166,7 @@ class AddEditCoffeeDlg(QDialog):
             self.saveToDB()
             # обновим основную таблицу
             # прямо скажем не очень красиво но ладно, пусть так
-            self.parent().updateTableFromDB()
+            self.parent().updateTableFromDB(self.record_id)
             # закначиваем с этим окном
             self.close()
 
@@ -251,7 +255,7 @@ class AddEditCoffeeDlg(QDialog):
         # объем
         volume = int(self.line_volume.text().strip())
 
-        if self.line_id.text() =='':
+        if self.record_id is None:
             # добавляем
             query = 'insert into coffee (name, roastingid, tasteid, price, volume, groundid) values(?, ?, ?, ?, ?, ?)'
             result = self.parent().con.execute(query, (name, roastingID, tasteID, price, volume, groundID)).fetchall()
@@ -260,7 +264,7 @@ class AddEditCoffeeDlg(QDialog):
             # и так много времени уже потрачено, мы понимаем как надо делать в идеале
             query = 'update coffee set name=?, roastingid=?, tasteid=?, price=?, volume=?, groundid=? where id=?'
             result = self.parent().con.execute(query,
-                (name, roastingID, tasteID, price, volume, groundID, int(self.line_id.text()))).fetchall()
+                (name, roastingID, tasteID, price, volume, groundID, self.record_id)).fetchall()
 
         self.parent().con.commit()
 
