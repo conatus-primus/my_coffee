@@ -4,25 +4,17 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QTableWidgetItem, QTableW
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QIcon, QAction, QIntValidator
 import sqlite3
-from PyQt6.uic import loadUi
+from ui_main import Ui_MainWindow
+from ui_addEditCoffeeForm import Ui_AddEditCoffeeForm
 
-
-db_name = 'coffee.sqlite'
-db_name = 'D:/YL/my_coffee/coffee.sqlite'
+db_name = 'data/coffee.sqlite'
 role_db = Qt.ItemDataRole.UserRole + 1
 
 
-class Ui_Dialog(object):
-    def setupUi(self, Dialog):
-        super().__init__()
-        uic.loadUi('addEditCoffeeForm.ui', self)
-        Dialog.resize(400, 300)
-
-
-class MyWidget(QMainWindow):
+class MyWidget(QMainWindow, Ui_MainWindow):
     def __init__(self):
         super().__init__()
-        uic.loadUi('main.ui', self)  # Загружаем дизайн
+        self.setupUi(self)
         self.initUi()
         # Подключение к БД
         self.con = sqlite3.connect(db_name)
@@ -30,7 +22,7 @@ class MyWidget(QMainWindow):
         self.updateTableFromDB(None)
 
     def initUi(self):
-        self.setWindowTitle('Капучино')
+        self.setWindowTitle('Латте')
 
         # разбираемся с таблицей
         title_headers = ['ID', 'Название', 'Обжарка', 'Помол', 'Вкус', 'Цена', 'Объем']
@@ -110,11 +102,12 @@ class MyWidget(QMainWindow):
         else:
             self.close()
 
-class AddEditCoffeeDlg(QDialog):
+
+class AddEditCoffeeDlg(QDialog, Ui_AddEditCoffeeForm):
     def __init__(self, parent, record_id):
         super().__init__(parent)
         self.record_id = record_id
-        loadUi('addEditCoffeeForm.ui', self)
+        self.setupUi(self)
 
         # ограничим ввод числами
         val_price = QIntValidator(self)
@@ -207,7 +200,8 @@ class AddEditCoffeeDlg(QDialog):
 
         for value in controlList:
             # Выполнение запроса и получение всех результатов
-            result = self.parent().con.execute(f'SELECT id, name from {value[1]} order by name').fetchall()
+            control, table_name, index_in_query = value
+            result = self.parent().con.execute(f'SELECT id, name from {table_name} order by name').fetchall()
 
             # неопределенные значения
             unknownList = dict()
@@ -215,22 +209,25 @@ class AddEditCoffeeDlg(QDialog):
             i = 0
             for elem in result:
                 # сохраним неизвестные значения
-                if elem[0] == 0:
-                    unknownList[value[0]] = elem
+                id_elem, name_elem = elem
+                if id_elem == 0:
+                    unknownList[control] = elem
                     continue
-                value[0].addItem(elem[1])
-                value[0].setItemData(i, elem[0], role_db)
-                if edit_record is not None and elem[0] == edit_record[value[2]]:
-                    value[0].setCurrentIndex(i)
+                control.addItem(name_elem)
+                control.setItemData(i, id_elem, role_db)
+                if edit_record is not None and id_elem == edit_record[index_in_query]:
+                    control.setCurrentIndex(i)
                 i += 1
 
             # ставим фокус на неизвестное если не было ничего выбрано
-            if value[0] in unknownList:
-                unknown = unknownList[value[0]]
-                value[0].addItem(unknown[1])
-                value[0].setItemData(i, unknown[0], role_db)
+            if control in unknownList.keys():
+                id_elem_unk, name_elem_unk = unknownList[control]
+                control.addItem(name_elem_unk)
+                control.setItemData(i, id_elem_unk, role_db)
                 if record_id is None:
-                    value[0].setCurrentIndex(i)
+                    control.setCurrentIndex(i)
+                elif id_elem_unk == edit_record[index_in_query]:
+                    control.setCurrentIndex(i)
 
         # заполняем остальные поля
         if record_id is not None:
@@ -264,7 +261,8 @@ class AddEditCoffeeDlg(QDialog):
             # и так много времени уже потрачено, мы понимаем как надо делать в идеале
             query = 'update coffee set name=?, roastingid=?, tasteid=?, price=?, volume=?, groundid=? where id=?'
             result = self.parent().con.execute(query,
-                (name, roastingID, tasteID, price, volume, groundID, self.record_id)).fetchall()
+                                               (name, roastingID, tasteID, price, volume, groundID,
+                                                self.record_id)).fetchall()
 
         self.parent().con.commit()
 
